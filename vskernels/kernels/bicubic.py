@@ -3,10 +3,9 @@ from __future__ import annotations
 from math import sqrt
 from typing import Any
 
-from vstools import CustomValueError, inject_self
+from vstools import CustomValueError, inject_self, core, vs
 
-from .complex import CustomComplexKernel
-from .helpers import bic_vals, poly3
+from .zimg import ZimgComplexKernel
 
 __all__ = [
     'Bicubic',
@@ -26,7 +25,7 @@ __all__ = [
 ]
 
 
-class Bicubic(CustomComplexKernel):
+class Bicubic(ZimgComplexKernel):
     """
     Built-in bicubic resizer.
 
@@ -36,25 +35,24 @@ class Bicubic(CustomComplexKernel):
     :param c: C-param for bicubic kernel
     """
 
+    scale_function = resample_function = core.lazy.resize2.Bicubic
+    descale_function = core.lazy.descale.Debicubic
+
     def __init__(self, b: float = 0, c: float = 1 / 2, **kwargs: Any) -> None:
         self.b = b
         self.c = c
         super().__init__(**kwargs)
 
-    @inject_self.cached
-    def kernel(self, *, x: float) -> float:
-        x, b, c = abs(x), self.b, self.c
-
-        if (x < 1.0):
-            return poly3(x, bic_vals.p0(b, c), 0.0, bic_vals.p2(b, c), bic_vals.p3(b, c))
-
-        if (x < 2.0):
-            return poly3(x, bic_vals.q0(b, c), bic_vals.q1(b, c), bic_vals.q2(b, c), bic_vals.q3(b, c))
-
-        return 0.0
+    def get_params_args(
+        self, is_descale: bool, clip: vs.VideoNode, width: int | None = None, height: int | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
+        args = super().get_params_args(is_descale, clip, width, height, **kwargs)
+        if is_descale:
+            return args | dict(b=self.b, c=self.c)
+        return args | dict(filter_param_a=self.b, filter_param_b=self.c)
 
     @inject_self.cached.property
-    def kernel_radius(self) -> int:  # type: ignore
+    def kernel_radius(self) -> int:  # type: ignore[override]
         if (self.b, self.c) == (0, 0):
             return 1
         return 2

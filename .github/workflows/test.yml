@@ -49,7 +49,7 @@ jobs:
           uv pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Running tests
-        run: uv run pytest --cov-report=term-missing:skip-covered --cov=vstools tests
+        run: uv run pytest --cov-report=term-missing:skip-covered --cov=vskernels --cov=vstools tests
 
       - name: Convert coverage report to cobertura
         run: uv run coverage xml
