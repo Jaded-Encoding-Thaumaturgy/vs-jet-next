@@ -13,7 +13,6 @@ from vstools import (
 from .blur import box_blur, median_blur, min_blur
 from .enum import BlurMatrix, RemoveGrainMode, RemoveGrainModeT, RepairMode, RepairModeT
 from .rgtools import removegrain, repair
-from .util import norm_rmode_planes
 
 __all__ = [
     'contrasharpening', 'contra',
@@ -68,7 +67,7 @@ def contrasharpening(
     diff_flt = src.std.MakeDiff(flt, planes)
 
     # Limit the difference to the max of what the filtering removed locally
-    limit = repair(diff_blur, diff_flt, norm_rmode_planes(flt, mode, planes))
+    limit = repair(diff_blur, diff_flt, mode)
 
     # abs(diff) after limiting may not be bigger than before
     # Apply the limited difference (sharpening is just inverse blurring)
@@ -92,11 +91,9 @@ def contrasharpening_dehalo(
 
     planes = normalize_planes(flt, planes)
 
-    rep_modes = norm_rmode_planes(flt, RepairMode.MINMAX_SQUARE1, planes)
-
     blur = BlurMatrix.BINOMIAL()(flt, planes)
     blur2 = median_blur(blur, 2, planes=planes)
-    blur2 = iterate(blur2, partial(repair, repairclip=blur), 2, mode=rep_modes)
+    blur2 = iterate(blur2, partial(repair, repairclip=blur), 2, mode=RepairMode.MINMAX_SQUARE1)
 
     return norm_expr(
         [blur, blur2, src, flt],
@@ -124,7 +121,7 @@ def contrasharpening_median(
     planes = normalize_planes(flt, planes)
 
     if isinstance(mode, (int, list, RemoveGrainMode)):
-        repaired = removegrain(flt, norm_rmode_planes(flt, mode, planes))
+        repaired = removegrain(flt, mode)
     elif callable(mode):
         repaired = mode(flt, planes=planes)
     else:
@@ -188,7 +185,7 @@ def fine_contra(
             else:
                 mblur = merge_func(mblurs)
 
-    limit = repair(mblur, src.std.MakeDiff(flt, planes), norm_rmode_planes(flt, mode, planes))
+    limit = repair(mblur, src.std.MakeDiff(flt, planes), mode)
 
     if complexpr_available:
         expr = 'x {mid} - LD! y {mid} - BD! LD@ abs BD@ abs < LD@ BD@ ? z +'

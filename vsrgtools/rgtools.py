@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from vsexprtools import complexpr_available, expr_func
-from vstools import NotFoundEnumValue, PlanesT, check_variable, core, normalize_seq, pick_func_stype, vs
+from vsexprtools import complexpr_available, norm_expr
+from vstools import NotFoundEnumValue, PlanesT, check_variable, core, pick_func_stype, vs
 
-from .aka_expr import (
-    aka_removegrain_expr_11_12, aka_removegrain_expr_19, aka_removegrain_expr_20, aka_removegrain_expr_23,
-    aka_removegrain_expr_24, removegrain_aka_exprs, repair_aka_exprs
-)
+from .aka_expr import removegrain_aka_exprs, repair_aka_exprs
 from .enum import (
     BlurMatrix, RemoveGrainMode, RemoveGrainModeT, RepairMode, RepairModeT, VerticalCleanerMode, VerticalCleanerModeT
 )
@@ -22,35 +19,31 @@ def repair(clip: vs.VideoNode, repairclip: vs.VideoNode, mode: RepairModeT) -> v
     assert check_variable(clip, repair)
     assert check_variable(repairclip, repair)
 
-    is_float = clip.format.sample_type == vs.FLOAT
-    mode = normalize_seq(mode, clip.format.num_planes)
-
-    if not sum(mode):
+    if mode not in RepairMode:
+        raise NotFoundEnumValue('Invalid RepairMode specified!', repair, mode)
+    
+    if mode == RepairMode.NONE:
         return clip
 
     if not complexpr_available:
-        if (RepairMode.CLIP_REF_RG20 in mode or RepairMode.CLIP_REF_RG23 in mode) and is_float:
-            raise NotFoundEnumValue(
-                'Specified RepairMode for rgsf is not implemented!', repair, reason=iter(mode)
-            )
+        if mode in (RepairMode.CLIP_REF_RG20, RepairMode.CLIP_REF_RG23) and clip.format.sample_type == vs.FLOAT:
+            raise NotFoundEnumValue('Specified RepairMode for rgsf is not implemented!', repair, mode)
 
         return pick_func_stype(clip, core.rgvs.Repair, core.rgsf.Repair)(clip, repairclip, mode)
 
-    return core.akarin.Expr(
-        [clip, repairclip], [repair_aka_exprs[m]() for m in mode], clip.format.id, True
-    )
+    return norm_expr([clip, repairclip], repair_aka_exprs[mode]())
 
 
 def removegrain(clip: vs.VideoNode, mode: RemoveGrainModeT) -> vs.VideoNode:
     assert check_variable(clip, removegrain)
 
-    mode = normalize_seq(mode, clip.format.num_planes)
-    mode = list(map(RemoveGrainMode, mode))
-
-    if not sum(mode):
+    if mode not in RemoveGrainMode:
+        raise NotFoundEnumValue('Invalid RemoveGrainMode specified!', removegrain, mode)
+    
+    if mode == RemoveGrainMode.NONE:
         return clip
 
-    if clip.format.sample_type == vs.INTEGER and all(m in range(24 + 1) for m in mode):
+    if clip.format.sample_type == vs.INTEGER and mode in range(1, 24 + 1):
         if hasattr(core, "zsmooth"):
             return clip.zsmooth.RemoveGrain(mode)
 
@@ -59,38 +52,25 @@ def removegrain(clip: vs.VideoNode, mode: RemoveGrainModeT) -> vs.VideoNode:
 
     if not complexpr_available:
         return clip.zsmooth.RemoveGrain(mode)
+    
+    if RemoveGrainMode.BOB_TOP_CLOSE <= mode <= RemoveGrainMode.BOB_BOTTOM_INTER:
+        return pick_func_stype(clip, core.lazy.rgvs.RemoveGrain, core.lazy.zsmooth.RemoveGrain)(clip, mode)
 
-    expr = list[str]()
+    match mode:
+        case RemoveGrainMode.MINMAX_MEDIAN:
+            return clip.std.Median()
 
-    for idx, m in enumerate(mode):
-        if m == RemoveGrainMode.BINOMIAL_BLUR:
-            if all(mm == m for mm in mode):
-                return BlurMatrix.BINOMIAL()(clip)
-            expr.append(aka_removegrain_expr_11_12())
+        case RemoveGrainMode.BINOMIAL_BLUR:
+            return BlurMatrix.BINOMIAL()(clip)
 
-        elif RemoveGrainMode.BOB_TOP_CLOSE <= m <= RemoveGrainMode.BOB_BOTTOM_INTER:
-            return pick_func_stype(clip, core.lazy.rgvs.RemoveGrain, core.lazy.zsmooth.RemoveGrain)(clip, mode)
+        case RemoveGrainMode.BOX_BLUR_NO_CENTER:
+            return BlurMatrix.MEAN_NO_CENTER()(clip)
 
-        elif m == RemoveGrainMode.BOX_BLUR_NO_CENTER:
-            if set(mode) == {RemoveGrainMode.BOX_BLUR_NO_CENTER}:
-                return BlurMatrix.CIRCLE()(clip)
-            expr.append(aka_removegrain_expr_19())
+        case RemoveGrainMode.BOX_BLUR:
+            return BlurMatrix.MEAN()(clip)
 
-        elif m == RemoveGrainMode.BOX_BLUR:
-            if set(mode) == {RemoveGrainMode.BOX_BLUR}:
-                return BlurMatrix.MEAN()(clip)
-            expr.append(aka_removegrain_expr_20())
-
-        elif m == RemoveGrainMode.EDGE_DEHALO:
-            expr.append(aka_removegrain_expr_23(0 if idx == 0 else -0.5))
-
-        elif m == RemoveGrainMode.EDGE_DEHALO2:
-            expr.append(aka_removegrain_expr_24(0 if idx == 0 else -0.5))
-
-        else:
-            expr.append(removegrain_aka_exprs[m]())
-
-    return expr_func(clip, expr, opt=True)
+        case _:
+            return norm_expr(clip, removegrain_aka_exprs[mode]())
 
 
 def clense(
@@ -110,4 +90,10 @@ def backward_clense(clip: vs.VideoNode, planes: PlanesT = None) -> vs.VideoNode:
 
 
 def vertical_cleaner(clip: vs.VideoNode, mode: VerticalCleanerModeT = VerticalCleanerMode.MEDIAN) -> vs.VideoNode:
+    if mode not in VerticalCleanerMode:
+        raise NotFoundEnumValue('Invalid VerticalCleanerMode specified!', vertical_cleaner, mode)
+    
+    if mode == VerticalCleanerMode.NONE:
+        return clip
+
     return pick_func_stype(clip, core.lazy.rgvs.VerticalCleaner, core.lazy.rgsf.VerticalCleaner)(clip, mode)

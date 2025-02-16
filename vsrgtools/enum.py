@@ -73,15 +73,13 @@ class RemoveGrainMode(CustomIntEnum):
     OPP_CLIP_AVG_FAST = 22
     EDGE_DEHALO = 23
     EDGE_DEHALO2 = 24
-    MIN_SHARP2 = 25
     SMART_RGC = 26
     SMART_RGCL = 27
     SMART_RGCL2 = 28
 
     def __call__(self, clip: vs.VideoNode, planes: PlanesT = None) -> vs.VideoNode:
         from .rgtools import removegrain
-        from .util import norm_rmode_planes
-        return removegrain(clip, norm_rmode_planes(clip, self, planes))
+        return removegrain(clip, self)
 
 
 RemoveGrainModeT = int | RemoveGrainMode | Sequence[int | RemoveGrainMode]
@@ -119,8 +117,7 @@ class RepairMode(CustomIntEnum):
 
     def __call__(self, clip: vs.VideoNode, repairclip: vs.VideoNode, planes: PlanesT = None) -> vs.VideoNode:
         from .rgtools import repair
-        from .util import norm_rmode_planes
-        return repair(clip, repairclip, norm_rmode_planes(clip, self, planes))
+        return repair(clip, repairclip, self)
 
 
 RepairModeT = int | RepairMode | Sequence[int | RepairMode]
@@ -133,8 +130,7 @@ class VerticalCleanerMode(CustomIntEnum):
 
     def __call__(self, clip: vs.VideoNode, planes: PlanesT = None) -> vs.VideoNode:
         from .rgtools import vertical_cleaner
-        from .util import norm_rmode_planes
-        return vertical_cleaner(clip, norm_rmode_planes(clip, self, planes))
+        return vertical_cleaner(clip, self)
 
 
 VerticalCleanerModeT = int | VerticalCleanerMode | Sequence[int | VerticalCleanerMode]
@@ -313,7 +309,7 @@ class BlurMatrixBase(list[Nb]):
 
 
 class BlurMatrix(CustomIntEnum):
-    CIRCLE = 0
+    MEAN_NO_CENTER = 0
     MEAN = 1
     BINOMIAL = 2
     LOG = 3
@@ -368,7 +364,7 @@ class BlurMatrix(CustomIntEnum):
 
     @overload
     def __call__(  # type: ignore[misc]
-        self: Literal[BlurMatrix.CIRCLE], taps: int = 1, *, mode: ConvMode = ConvMode.SQUARE
+        self: Literal[BlurMatrix.MEAN_NO_CENTER], taps: int = 1, *, mode: ConvMode = ConvMode.SQUARE
     ) -> BlurMatrixBase[int]:
         ...
 
@@ -394,7 +390,7 @@ class BlurMatrix(CustomIntEnum):
         kernel: BlurMatrixBase[Any]
 
         match self:
-            case BlurMatrix.CIRCLE:
+            case BlurMatrix.MEAN_NO_CENTER:
                 mode = kwargs.pop("mode", ConvMode.SQUARE)
 
                 matrix = [1 for _ in range(((2 * taps + 1) ** (2 if mode == ConvMode.SQUARE else 1)) - 1)]
