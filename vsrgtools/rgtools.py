@@ -31,7 +31,7 @@ def repair(clip: vs.VideoNode, repairclip: vs.VideoNode, mode: RepairModeT) -> v
 
         return pick_func_stype(clip, core.rgvs.Repair, core.rgsf.Repair)(clip, repairclip, mode)
 
-    return norm_expr([clip, repairclip], repair_aka_exprs[mode])
+    return norm_expr([clip, repairclip], repair_aka_exprs[mode]())
 
 
 def removegrain(clip: vs.VideoNode, mode: RemoveGrainModeT) -> vs.VideoNode:
@@ -70,7 +70,7 @@ def removegrain(clip: vs.VideoNode, mode: RemoveGrainModeT) -> vs.VideoNode:
             return BlurMatrix.MEAN()(clip)
 
         case _:
-            return norm_expr(clip, removegrain_aka_exprs[mode])
+            return norm_expr(clip, removegrain_aka_exprs[mode]())
 
 
 def clense(
