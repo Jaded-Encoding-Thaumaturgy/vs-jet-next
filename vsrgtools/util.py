@@ -1,38 +1,18 @@
 from __future__ import annotations
 
-from typing import Any, Sequence, TypeVar, cast
+from typing import Any
 
-from vstools import (
-    ConvMode, GenericVSFunction, KwargsT, Nb, PlanesT, check_variable, check_variable_format, join, normalize_planes,
-    normalize_seq, plane, vs
-)
+from vstools import ConvMode, GenericVSFunction, KwargsT, Nb, check_variable_format, join, normalize_seq, plane, vs
 
-from .enum import RemoveGrainMode, RepairMode, BlurMatrix
+from .enum import BlurMatrix
 
 __all__ = [
     'wmean_matrix', 'mean_matrix',
-    'norm_rmode_planes',
     'normalize_radius'
 ]
 
 wmean_matrix = list(BlurMatrix.BINOMIAL(1, mode=ConvMode.SQUARE))
 mean_matrix = list(BlurMatrix.MEAN(1, mode=ConvMode.SQUARE))
-
-RModeT = TypeVar('RModeT', RemoveGrainMode, RepairMode)
-
-
-def norm_rmode_planes(
-    clip: vs.VideoNode, mode: int | RModeT | Sequence[int | RModeT], planes: PlanesT = None
-) -> list[int]:
-    assert check_variable(clip, norm_rmode_planes)
-
-    modes_array = normalize_seq(mode, clip.format.num_planes)
-
-    planes = normalize_planes(clip, planes)
-
-    return [
-        cast(RModeT, rep if i in planes else 0) for i, rep in enumerate(modes_array, 0)
-    ]
 
 
 def normalize_radius(

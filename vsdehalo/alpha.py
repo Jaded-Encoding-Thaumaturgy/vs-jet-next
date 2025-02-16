@@ -11,7 +11,6 @@ from vsrgtools import (
     BlurMatrixBase, RemoveGrainMode, RepairMode, box_blur, contrasharpening,
     contrasharpening_dehalo, gauss_blur, limit_filter, repair
 )
-from vsrgtools.util import norm_rmode_planes
 from vstools import (
     ConvMode, CustomIndexError, CustomIntEnum, CustomValueError, FieldBased, FuncExceptT,
     FunctionUtil, InvalidColorFamilyError, KwargsT, OneDimConvModeT, PlanesT,
@@ -92,7 +91,7 @@ def _dehalo_supersample_minmax(
 
     def _supersample(work_clip: vs.VideoNode, dehalo: vs.VideoNode, ss: float) -> vs.VideoNode:
         if ss <= 1.0:
-            return repair(work_clip, dehalo, norm_rmode_planes(work_clip, 1, planes))
+            return repair(work_clip, dehalo, 1)
 
         w, h = mod4(work_clip.width * ss), mod4(work_clip.height * ss)
         ss_clip = norm_expr([
